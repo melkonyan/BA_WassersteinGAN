@@ -33,6 +33,7 @@ def read_dataset(data_dir):
         if not os.path.exists(dir_path):
             print ("CelebA dataset needs to be downloaded and unzipped manually")
             print ("Download from: %s" % DATA_URL)
+            print ("Expecting CelebA dataset at %s" % dir_path)
             raise ValueError("Dataset not found")
 
         result = create_image_lists(dir_path)

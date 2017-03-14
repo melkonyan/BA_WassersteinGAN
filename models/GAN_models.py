@@ -46,7 +46,7 @@ class GAN(object):
             tf.float32)
         decoded_image_4d = tf.expand_dims(cropped_image, 0)
         resized_image = tf.image.resize_bilinear(decoded_image_4d, [self.resized_image_size, self.resized_image_size])
-        record.input_image = tf.squeeze(resized_image, squeeze_dims=[0])
+        record.input_image = tf.squeeze(resized_image, axis=[0])
         return record
 
     def _read_input_queue(self, filename_queue):
@@ -80,7 +80,7 @@ class GAN(object):
                 image_size *= 2
                 W = utils.weight_variable([5, 5, dims[index + 1], dims[index]], name="W_%d" % index)
                 b = utils.bias_variable([dims[index + 1]], name="b_%d" % index)
-                deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
                 h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
                 h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
                 h = activation(h_bn, name='h_%d' % index)
@@ -89,7 +89,7 @@ class GAN(object):
             image_size *= 2
             W_pred = utils.weight_variable([5, 5, dims[-1], dims[-2]], name="W_pred")
             b_pred = utils.bias_variable([dims[-1]], name="b_pred")
-            deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+            deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
             h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b_pred, output_shape=deconv_shape)
             pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
             utils.add_activation_summary(pred_image)
@@ -126,8 +126,8 @@ class GAN(object):
         return tf.nn.sigmoid(h_pred), h_pred, h
 
     def _cross_entropy_loss(self, logits, labels, name="x_entropy"):
-        xentropy = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits, labels))
-        tf.scalar_summary(name, xentropy)
+        xentropy = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))
+        tf.summary.scalar(name, xentropy)
         return xentropy
 
     def _get_optimizer(self, optimizer_name, learning_rate, optimizer_param):
@@ -164,28 +164,30 @@ class GAN(object):
             gen_loss_features = 0
         self.gen_loss = gen_loss_disc + 0.1 * gen_loss_features
 
-        tf.scalar_summary("Discriminator_loss", self.discriminator_loss)
-        tf.scalar_summary("Generator_loss", self.gen_loss)
+        tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
+        tf.summary.scalar("Generator_loss", self.gen_loss)
 
     def create_network(self, generator_dims, discriminator_dims, optimizer="Adam", learning_rate=2e-4,
                        optimizer_param=0.9, improved_gan_loss=True):
         print("Setting up model...")
         self._setup_placeholder()
-        tf.histogram_summary("z", self.z_vec)
+        tf.summary.histogram("z", self.z_vec)
         self.gen_images = self._generator(self.z_vec, generator_dims, self.train_phase, scope_name="generator")
 
-        tf.image_summary("image_real", self.images, max_images=2)
-        tf.image_summary("image_generated", self.gen_images, max_images=2)
+        tf.summary.image("image_real", self.images, max_outputs=2)
+        tf.summary.image("image_generated", self.gen_images, max_outputs=2)
 
         def leaky_relu(x, name="leaky_relu"):
             return utils.leaky_relu(x, alpha=0.2, name=name)
 
+        print("Creating discriminator for real images")
         discriminator_real_prob, logits_real, feature_real = self._discriminator(self.images, discriminator_dims,
                                                                                  self.train_phase,
                                                                                  activation=leaky_relu,
                                                                                  scope_name="discriminator",
                                                                                  scope_reuse=False)
 
+        print("Creating discriminator for generated images")
         discriminator_fake_prob, logits_fake, feature_fake = self._discriminator(self.gen_images, discriminator_dims,
                                                                                  self.train_phase,
                                                                                  activation=leaky_relu,
@@ -218,11 +220,11 @@ class GAN(object):
         print("Initializing network...")
         self.logs_dir = logs_dir
         self.sess = tf.Session()
-        self.summary_op = tf.merge_all_summaries()
+        self.summary_op = tf.summary.merge_all()
         self.saver = tf.train.Saver()
-        self.summary_writer = tf.train.SummaryWriter(self.logs_dir, self.sess.graph)
+        self.summary_writer = tf.summary.FileWriter(self.logs_dir, self.sess.graph)
 
-        self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
         ckpt = tf.train.get_checkpoint_state(self.logs_dir)
         if ckpt and ckpt.model_checkpoint_path:
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
@@ -290,7 +292,7 @@ class WasserstienGAN(GAN):
                 image_size *= 2
                 W = utils.weight_variable([4, 4, dims[index + 1], dims[index]], name="W_%d" % index)
                 b = tf.zeros([dims[index + 1]])
-                deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
                 h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
                 h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
                 h = activation(h_bn, name='h_%d' % index)
@@ -299,7 +301,7 @@ class WasserstienGAN(GAN):
             image_size *= 2
             W_pred = utils.weight_variable([4, 4, dims[-1], dims[-2]], name="W_pred")
             b = tf.zeros([dims[-1]])
-            deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+            deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
             h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b, output_shape=deconv_shape)
             pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
             utils.add_activation_summary(pred_image)
@@ -335,8 +337,8 @@ class WasserstienGAN(GAN):
         self.discriminator_loss = tf.reduce_mean(logits_real - logits_fake)
         self.gen_loss = tf.reduce_mean(logits_fake)
 
-        tf.scalar_summary("Discriminator_loss", self.discriminator_loss)
-        tf.scalar_summary("Generator_loss", self.gen_loss)
+        tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
+        tf.summary.scalar("Generator_loss", self.gen_loss)
 
     def train_model(self, max_iterations):
         try:
