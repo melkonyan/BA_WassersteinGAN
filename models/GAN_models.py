@@ -25,9 +25,12 @@ class GAN(object):
         self.resized_image_size = resized_image_size
         self.batch_size = batch_size
         filename_queue = tf.train.string_input_producer(celebA_dataset.train_images)
-        self.images = self._read_input_queue(filename_queue)
+        self.training_batch_images = self._read_input_queue(filename_queue)
 
     def _read_input(self, filename_queue):
+        """
+        :return: a tensorflow node that will read one image from a file at a time and convert it to a tensor of floats.
+        """
         class DataRecord(object):
             pass
 
@@ -50,6 +53,9 @@ class GAN(object):
         return record
 
     def _read_input_queue(self, filename_queue):
+        """
+        :return: a tensorflow node that will read images from the queue and construct training batches from them.
+        """
         print("Setting up image reader...")
         read_input = self._read_input(filename_queue)
         num_preprocess_threads = 4
@@ -65,6 +71,9 @@ class GAN(object):
         return input_image
 
     def _generator(self, z, dims, train_phase, activation=tf.nn.relu, scope_name="generator"):
+        """
+        Create generator node. CNN with 'dims' convolutional layers.
+        """
         N = len(dims)
         image_size = self.resized_image_size // (2 ** (N - 1))
         with tf.variable_scope(scope_name) as scope:
@@ -174,14 +183,14 @@ class GAN(object):
         tf.summary.histogram("z", self.z_vec)
         self.gen_images = self._generator(self.z_vec, generator_dims, self.train_phase, scope_name="generator")
 
-        tf.summary.image("image_real", self.images, max_outputs=2)
+        tf.summary.image("image_real", self.training_batch_images, max_outputs=2)
         tf.summary.image("image_generated", self.gen_images, max_outputs=2)
 
         def leaky_relu(x, name="leaky_relu"):
             return utils.leaky_relu(x, alpha=0.2, name=name)
 
         print("Creating discriminator for real images")
-        discriminator_real_prob, logits_real, feature_real = self._discriminator(self.images, discriminator_dims,
+        discriminator_real_prob, logits_real, feature_real = self._discriminator(self.training_batch_images, discriminator_dims,
                                                                                  self.train_phase,
                                                                                  activation=leaky_relu,
                                                                                  scope_name="discriminator",

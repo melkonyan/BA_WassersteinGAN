@@ -135,7 +135,6 @@ def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.
     Return:
         normed:      batch-normalized maps
     """
-    print(scope)
     with tf.variable_scope(scope):
         beta = tf.get_variable(name= 'beta', shape=[n_out], initializer=tf.constant_initializer(0.0)
                                , trainable=True)
@@ -146,7 +145,6 @@ def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.
         ema = tf.train.ExponentialMovingAverage(decay=decay)
         def mean_var_with_update():
             ema_apply_op = ema.apply([batch_mean, batch_var])
-            print(ema_apply_op.name)
             with tf.control_dependencies([ema_apply_op]):
                 return tf.identity(batch_mean), tf.identity(batch_var)
         mean, var = tf.cond(phase_train,

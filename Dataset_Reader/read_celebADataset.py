@@ -17,6 +17,9 @@ random.seed(5)
 
 
 class CelebA_Dataset():
+    """
+    Downloads CelebA dataset from internet, shuffles images and store image names to the pickle file.
+    """
     def __init__(self, dict):
         self.train_images = dict['train']
         self.test_images = dict['test']
