@@ -1,3 +1,10 @@
+This repository is cloned from https://github.com/shekkizh/WassersteinGAN.tensorflow by 
+# Installation
+ * Run ./install.sh to install all system libraries
+ * Run pip3 install -r requirements.txt to install all python3 dependencies
+ * Run source create_vars.sh to create environment variables
+ * Copy cudnn archive to the target machine and run ./install_cuda.sh to install cuDNN
+ 
 # WassersteinGAN.tensorflow
 Tensorflow implementation of Arjovsky et al.'s [Wasserstein GAN](https://arxiv.org/abs/1701.07875)
 
