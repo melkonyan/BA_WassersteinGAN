@@ -5,3 +5,4 @@ Data_zoo
 *.pyc
 .idea/
 
+client_secret.json

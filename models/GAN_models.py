@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 import os, sys, inspect
 import time
-
+import scipy.misc
 utils_folder = os.path.realpath(
     os.path.abspath(os.path.join(os.path.split(inspect.getfile(inspect.currentframe()))[0], "..")))
 if utils_folder not in sys.path:
@@ -225,7 +225,7 @@ class GAN(object):
         self.generator_train_op = self._train(self.gen_loss, self.generator_variables, optim)
         self.discriminator_train_op = self._train(self.discriminator_loss, self.discriminator_variables, optim)
 
-    def initialize_network(self, logs_dir):
+    def initialize_network(self, logs_dir, checkpoint_file=None):
         print("Initializing network...")
         self.logs_dir = logs_dir
         self.sess = tf.Session()
@@ -234,10 +234,15 @@ class GAN(object):
         self.summary_writer = tf.summary.FileWriter(self.logs_dir, self.sess.graph)
 
         self.sess.run(tf.global_variables_initializer())
-        ckpt = tf.train.get_checkpoint_state(self.logs_dir)
-        if ckpt and ckpt.model_checkpoint_path:
-            self.saver.restore(self.sess, ckpt.model_checkpoint_path)
-            print("Model restored...")
+        if not checkpoint_file:
+            ckpt = tf.train.get_checkpoint_state(self.logs_dir)
+            if ckpt:
+                checkpoint_file = ckpt.model_checkpoint_path
+        else :
+            checkpoint_file = logs_dir + "/" + checkpoint_file
+        if checkpoint_file:
+            self.saver.restore(self.sess, checkpoint_file)
+            print("Model restored from file %s" % checkpoint_file)
         self.coord = tf.train.Coordinator()
         self.threads = tf.train.start_queue_runners(self.sess, self.coord)
 
@@ -251,7 +256,7 @@ class GAN(object):
                 self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
                 self.sess.run(self.generator_train_op, feed_dict=feed_dict)
 
-                if itr % 10 == 0:
+                if itr % 200 == 0:
                     g_loss_val, d_loss_val, summary_str = self.sess.run(
                         [self.gen_loss, self.discriminator_loss, self.summary_op], feed_dict=feed_dict)
                     print("Step: %d, generator loss: %g, discriminator_loss: %g" % (itr, g_loss_val, d_loss_val))
@@ -276,7 +281,8 @@ class GAN(object):
         images = self.sess.run(self.gen_images, feed_dict=feed_dict)
         images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
         shape = [4, self.batch_size // 4]
-        utils.save_imshow_grid(images, self.logs_dir, "generated.png", shape=shape)
+        utils.save_imshow_grid(images, self.logs_dir, "generated_palette.png", shape=shape)
+        scipy.misc.imsave(self.logs_dir+"/generated_image.png", images[0])
 
 
 class WasserstienGAN(GAN):

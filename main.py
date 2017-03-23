@@ -21,7 +21,7 @@ tf.flags.DEFINE_integer("model", "0", "Model to train. 0 - GAN, 1 - WassersteinG
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer to use for training")
 tf.flags.DEFINE_integer("gen_dimension", "16", "dimension of first layer in generator")
 tf.flags.DEFINE_string("mode", "train", "train / visualize model")
-
+tf.flags.DEFINE_string("checkpoint_file", None, "Name a file with all the variables. Should be in the logs directory.")
 
 def main(argv=None):
     gen_dim = FLAGS.gen_dimension
@@ -40,7 +40,7 @@ def main(argv=None):
     model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
                          FLAGS.optimizer_param)
 
-    model.initialize_network(FLAGS.logs_dir)
+    model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
 
     if FLAGS.mode == "train":
         model.train_model(int(1 + FLAGS.iterations))
