@@ -247,8 +247,11 @@ class GAN(object):
         self.threads = tf.train.start_queue_runners(self.sess, self.coord)
 
     def train_model(self, max_iterations):
+        print("Training model...")
+
+        start_time = time.time()
+        batch_start_time = time.time()
         try:
-            print("Training model...")
             for itr in xrange(1, max_iterations):
                 batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
                 feed_dict = {self.z_vec: batch_z, self.train_phase: True}
@@ -256,24 +259,33 @@ class GAN(object):
                 self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
                 self.sess.run(self.generator_train_op, feed_dict=feed_dict)
 
-                if itr % 200 == 0:
+                if itr % 2000 == 0:
+                    batch_stop_time = time.time()
+                    duration = (batch_stop_time - batch_start_time) / 2000.0
+                    batch_start_time = batch_stop_time
                     g_loss_val, d_loss_val, summary_str = self.sess.run(
                         [self.gen_loss, self.discriminator_loss, self.summary_op], feed_dict=feed_dict)
-                    print("Step: %d, generator loss: %g, discriminator_loss: %g" % (itr, g_loss_val, d_loss_val))
+                    print("Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
                     self.summary_writer.add_summary(summary_str, itr)
 
-                if itr % 2000 == 0:
-                    self.saver.save(self.sess, self.logs_dir + "model.ckpt", global_step=itr)
-
+                if itr % 5000 == 0:
+                    logdir = self.logs_dir+"step"+str(itr) + "/"
+                    if not os.path.exists(logdir):
+                        os.makedirs(logdir)
+                    self.saver.save(self.sess, logdir+ "model.ckpt", global_step=itr)
+                    self.visualize_model(logdir=logdir)
         except tf.errors.OutOfRangeError:
             print('Done training -- epoch limit reached')
         except KeyboardInterrupt:
             print("Ending Training...")
         finally:
+            print("Total training time: %g" % (time.time()-start_time))
             self.coord.request_stop()
             self.coord.join(self.threads)  # Wait for threads to finish.
 
-    def visualize_model(self):
+    def visualize_model(self, logdir=None):
+        if not logdir:
+            logdir = self.logs_dir
         print("Sampling images from model...")
         batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
         feed_dict = {self.z_vec: batch_z, self.train_phase: False}
@@ -281,8 +293,9 @@ class GAN(object):
         images = self.sess.run(self.gen_images, feed_dict=feed_dict)
         images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
         shape = [4, self.batch_size // 4]
-        utils.save_imshow_grid(images, self.logs_dir, "generated_palette.png", shape=shape)
-        scipy.misc.imsave(self.logs_dir+"/generated_image.png", images[0])
+        utils.save_imshow_grid(images, logdir, "generated_palette.png", shape=shape)
+        for i in range(len(images)):
+            scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
 
 
 class WasserstienGAN(GAN):
@@ -362,6 +375,7 @@ class WasserstienGAN(GAN):
                                          var in self.discriminator_variables]
 
             start_time = time.time()
+            batch_start_time = time.time()
 
             def get_feed_dict(train_phase=True):
                 batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
@@ -385,10 +399,10 @@ class WasserstienGAN(GAN):
                     summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
                     self.summary_writer.add_summary(summary_str, itr)
 
-                if itr % 200 == 0:
-                    stop_time = time.time()
-                    duration = (stop_time - start_time) / 200.0
-                    start_time = stop_time
+                if itr % 2000 == 0:
+                    batch_stop_time = time.time()
+                    duration = (batch_stop_time - batch_start_time) / 2000.0
+                    batch_start_time = batch_stop_time
                     g_loss_val, d_loss_val = self.sess.run([self.gen_loss, self.discriminator_loss],
                                                            feed_dict=feed_dict)
                     print("Time: %g/itr, Step: %d, generator loss: %g, discriminator_loss: %g" % (
@@ -402,5 +416,6 @@ class WasserstienGAN(GAN):
         except KeyboardInterrupt:
             print("Ending Training...")
         finally:
+            print("Total training time: %g" % time.time()-start_time)
             self.coord.request_stop()
             self.coord.join(self.threads)  # Wait for threads to finish.
