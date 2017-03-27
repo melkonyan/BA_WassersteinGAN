@@ -8,7 +8,10 @@ from six.moves import urllib
 import tarfile
 import zipfile
 from tqdm import trange
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 from mpl_toolkits.axes_grid1 import ImageGrid
 
 def maybe_download_and_extract(dir_path, url_name, is_tarfile=False, is_zipfile=False):

@@ -1,5 +1,1 @@
-scipy
-numpy
-matplotlib
-tqdm
-google-api-python-client
+pillow
