@@ -1,1 +1,7 @@
+matplotlib
+numpy
+tensorflow-gpu
 pillow
+scipy
+six
+tqdm
