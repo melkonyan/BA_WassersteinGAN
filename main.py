@@ -6,7 +6,8 @@ Tensorflow implementation of Wasserstein GAN
 """
 import numpy as np
 import tensorflow as tf
-from models.GAN_models import *
+from models.gan import GAN
+from models.wgan import WasserstienGAN
 
 FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "64", "batch size for training")

@@ -1,7 +1,5 @@
 from __future__ import print_function
 
-__author__ = "shekkizh"
-
 import tensorflow as tf
 import numpy as np
 import os, sys, inspect
@@ -18,12 +16,13 @@ from six.moves import xrange
 
 
 class GAN(object):
-    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir):
+    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations=5):
         celebA_dataset = celebA.read_dataset(data_dir)
         self.z_dim = z_dim
         self.crop_image_size = crop_image_size
         self.resized_image_size = resized_image_size
         self.batch_size = batch_size
+        self.critic_iterations=critic_iterations
         filename_queue = tf.train.string_input_producer(celebA_dataset.train_images)
         self.training_batch_images = self._read_input_queue(filename_queue)
 
@@ -246,6 +245,14 @@ class GAN(object):
         self.coord = tf.train.Coordinator()
         self.threads = tf.train.start_queue_runners(self.sess, self.coord)
 
+    def dis_post_update(self):
+        pass
+
+    def get_feed_dict(self, train_phase=True):
+                    batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
+                    feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
+                    return feed_dict
+
     def train_model(self, max_iterations):
         print("Training model...")
 
@@ -253,10 +260,19 @@ class GAN(object):
         batch_start_time = time.time()
         try:
             for itr in xrange(1, max_iterations):
-                batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
-                feed_dict = {self.z_vec: batch_z, self.train_phase: True}
 
-                self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
+
+
+                if itr < 25 or itr % 500 == 0:
+                    critic_itrs = 25
+                else:
+                    critic_itrs = self.critic_iterations
+
+                for critic_itr in range(critic_itrs):
+                    self.sess.run(self.discriminator_train_op, feed_dict=get_feed_dict(True))
+                    self.dis_post_update()
+
+                feed_dict = get_feed_dict(True)
                 self.sess.run(self.generator_train_op, feed_dict=feed_dict)
 
                 if itr % 100 == 0:
@@ -300,125 +316,3 @@ class GAN(object):
         for i in range(len(images)):
             scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
 
-
-class WasserstienGAN(GAN):
-    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, clip_values=(-0.01, 0.01),
-                 critic_iterations=5):
-        self.critic_iterations = critic_iterations
-        self.clip_values = clip_values
-        GAN.__init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir)
-
-    def _generator(self, z, dims, train_phase, activation=tf.nn.relu, scope_name="generator"):
-        N = len(dims)
-        image_size = self.resized_image_size // (2 ** (N - 1))
-        with tf.variable_scope(scope_name) as scope:
-            W_z = utils.weight_variable([self.z_dim, dims[0] * image_size * image_size], name="W_z")
-            h_z = tf.matmul(z, W_z)
-            h_z = tf.reshape(h_z, [-1, image_size, image_size, dims[0]])
-            h_bnz = utils.batch_norm(h_z, dims[0], train_phase, scope="gen_bnz")
-            h = activation(h_bnz, name='h_z')
-            utils.add_activation_summary(h)
-
-            for index in range(N - 2):
-                image_size *= 2
-                W = utils.weight_variable([4, 4, dims[index + 1], dims[index]], name="W_%d" % index)
-                b = tf.zeros([dims[index + 1]])
-                deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
-                h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
-                h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
-                h = activation(h_bn, name='h_%d' % index)
-                utils.add_activation_summary(h)
-
-            image_size *= 2
-            W_pred = utils.weight_variable([4, 4, dims[-1], dims[-2]], name="W_pred")
-            b = tf.zeros([dims[-1]])
-            deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
-            h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b, output_shape=deconv_shape)
-            pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
-            utils.add_activation_summary(pred_image)
-
-        return pred_image
-
-    def _discriminator(self, input_images, dims, train_phase, activation=tf.nn.relu, scope_name="discriminator",
-                       scope_reuse=False):
-        N = len(dims)
-        with tf.variable_scope(scope_name) as scope:
-            if scope_reuse:
-                scope.reuse_variables()
-            h = input_images
-            skip_bn = True  # First layer of discriminator skips batch norm
-            for index in range(N - 2):
-                W = utils.weight_variable([4, 4, dims[index], dims[index + 1]], name="W_%d" % index)
-                b = tf.zeros([dims[index+1]])
-                h_conv = utils.conv2d_strided(h, W, b)
-                if skip_bn:
-                    h_bn = h_conv
-                    skip_bn = False
-                else:
-                    h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase, scope="disc_bn%d" % index)
-                h = activation(h_bn, name="h_%d" % index)
-                utils.add_activation_summary(h)
-
-            W_pred = utils.weight_variable([4, 4, dims[-2], dims[-1]], name="W_pred")
-            b = tf.zeros([dims[-1]])
-            h_pred = utils.conv2d_strided(h, W_pred, b)
-        return None, h_pred, None  # Return the last convolution output. None values are returned to maintatin disc from other GAN
-
-    def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
-        self.discriminator_loss = tf.reduce_mean(logits_real - logits_fake)
-        self.gen_loss = tf.reduce_mean(logits_fake)
-
-        tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
-        tf.summary.scalar("Generator_loss", self.gen_loss)
-
-    def train_model(self, max_iterations):
-        try:
-            print("Training Wasserstein GAN model...")
-            clip_discriminator_var_op = [var.assign(tf.clip_by_value(var, self.clip_values[0], self.clip_values[1])) for
-                                         var in self.discriminator_variables]
-
-            start_time = time.time()
-            batch_start_time = time.time()
-
-            def get_feed_dict(train_phase=True):
-                batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
-                feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
-                return feed_dict
-
-            for itr in xrange(1, max_iterations):
-                if itr < 25 or itr % 500 == 0:
-                    critic_itrs = 25
-                else:
-                    critic_itrs = self.critic_iterations
-
-                for critic_itr in range(critic_itrs):
-                    self.sess.run(self.discriminator_train_op, feed_dict=get_feed_dict(True))
-                    self.sess.run(clip_discriminator_var_op)
-
-                feed_dict = get_feed_dict(True)
-                self.sess.run(self.generator_train_op, feed_dict=feed_dict)
-
-                if itr % 100 == 0:
-                    summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
-                    self.summary_writer.add_summary(summary_str, itr)
-
-                if itr % 2000 == 0:
-                    batch_stop_time = time.time()
-                    duration = (batch_stop_time - batch_start_time) / 2000.0
-                    batch_start_time = batch_stop_time
-                    g_loss_val, d_loss_val = self.sess.run([self.gen_loss, self.discriminator_loss],
-                                                           feed_dict=feed_dict)
-                    print("Time: %g/itr, Step: %d, generator loss: %g, discriminator_loss: %g" % (
-                        duration, itr, g_loss_val, d_loss_val))
-
-                if itr % 5000 == 0:
-                    self.saver.save(self.sess, self.logs_dir + "model.ckpt", global_step=itr)
-
-        except tf.errors.OutOfRangeError:
-            print('Done training -- epoch limit reached')
-        except KeyboardInterrupt:
-            print("Ending Training...")
-        finally:
-            print("Total training time: %g" % time.time()-start_time)
-            self.coord.request_stop()
-            self.coord.join(self.threads)  # Wait for threads to finish.
