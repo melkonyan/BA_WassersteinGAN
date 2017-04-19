@@ -259,14 +259,17 @@ class GAN(object):
                 self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
                 self.sess.run(self.generator_train_op, feed_dict=feed_dict)
 
+                if itr % 100 == 0:
+                    summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
+                    self.summary_writer.add_summary(summary_str, itr)
+
                 if itr % 2000 == 0:
                     batch_stop_time = time.time()
                     duration = (batch_stop_time - batch_start_time) / 2000.0
                     batch_start_time = batch_stop_time
-                    g_loss_val, d_loss_val, summary_str = self.sess.run(
-                        [self.gen_loss, self.discriminator_loss, self.summary_op], feed_dict=feed_dict)
+                    g_loss_val, d_loss_val = self.sess.run(
+                        [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
                     print("Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
-                    self.summary_writer.add_summary(summary_str, itr)
 
                 if itr % 5000 == 0:
                     logdir = self.logs_dir+"step"+str(itr) + "/"
