@@ -16,8 +16,9 @@ from six.moves import xrange
 
 
 class GAN(object):
-    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations=5):
+    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations=5, root_scope_name=''):
         celebA_dataset = celebA.read_dataset(data_dir)
+        self.root_scope_name = root_scope_name
         self.z_dim = z_dim
         self.crop_image_size = crop_image_size
         self.resized_image_size = resized_image_size
@@ -55,12 +56,12 @@ class GAN(object):
         """
         :return: a tensorflow node that will read images from the queue and construct training batches from them.
         """
-        print("Setting up image reader...")
+        print(self.root_scope_name+"Setting up image reader...")
         read_input = self._read_input(filename_queue)
         num_preprocess_threads = 4
         num_examples_per_epoch = 800
         min_queue_examples = int(0.1 * num_examples_per_epoch)
-        print("Shuffling")
+        print(self.root_scope_name+"Shuffling")
         input_image = tf.train.batch([read_input.input_image],
                                      batch_size=self.batch_size,
                                      num_threads=num_preprocess_threads,
@@ -157,14 +158,17 @@ class GAN(object):
         self.train_phase = tf.placeholder(tf.bool)
         self.z_vec = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], name="z")
 
-    def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
+
+    def _dis_loss(self, logits_real, logits_fake):
         discriminator_loss_real = self._cross_entropy_loss(logits_real, tf.ones_like(logits_real),
                                                            name="disc_real_loss")
 
         discriminator_loss_fake = self._cross_entropy_loss(logits_fake, tf.zeros_like(logits_fake),
                                                            name="disc_fake_loss")
-        self.discriminator_loss = discriminator_loss_fake + discriminator_loss_real
+        return discriminator_loss_fake + discriminator_loss_real
 
+    def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
+        self.discriminator_loss = self._dis_loss(logits_real, logits_fake)
         gen_loss_disc = self._cross_entropy_loss(logits_fake, tf.ones_like(logits_fake), name="gen_disc_loss")
         if use_features:
             gen_loss_features = tf.reduce_mean(tf.nn.l2_loss(feature_real - feature_fake)) / (self.crop_image_size ** 2)
@@ -175,9 +179,12 @@ class GAN(object):
         tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
         tf.summary.scalar("Generator_loss", self.gen_loss)
 
+    def leaky_relu(self, x, name="leaky_relu"):
+            return utils.leaky_relu(x, alpha=0.2, name=name)
+
     def create_network(self, generator_dims, discriminator_dims, optimizer="Adam", learning_rate=2e-4,
                        optimizer_param=0.9, improved_gan_loss=True):
-        print("Setting up model...")
+        print(self.root_scope_name+"Setting up model...")
         self._setup_placeholder()
         tf.summary.histogram("z", self.z_vec)
         self.gen_images = self._generator(self.z_vec, generator_dims, self.train_phase, scope_name="generator")
@@ -185,20 +192,17 @@ class GAN(object):
         tf.summary.image("image_real", self.training_batch_images, max_outputs=2)
         tf.summary.image("image_generated", self.gen_images, max_outputs=2)
 
-        def leaky_relu(x, name="leaky_relu"):
-            return utils.leaky_relu(x, alpha=0.2, name=name)
-
-        print("Creating discriminator for real images")
-        discriminator_real_prob, logits_real, feature_real = self._discriminator(self.training_batch_images, discriminator_dims,
+        print(self.root_scope_name+"Creating discriminator for real images")
+        discriminator_real_prob, self.logits_real, feature_real = self._discriminator(self.training_batch_images, discriminator_dims,
                                                                                  self.train_phase,
-                                                                                 activation=leaky_relu,
+                                                                                 activation=self.leaky_relu,
                                                                                  scope_name="discriminator",
                                                                                  scope_reuse=False)
 
-        print("Creating discriminator for generated images")
-        discriminator_fake_prob, logits_fake, feature_fake = self._discriminator(self.gen_images, discriminator_dims,
+        print(self.root_scope_name+"Creating discriminator for generated images")
+        discriminator_fake_prob, self.logits_fake, feature_fake = self._discriminator(self.gen_images, discriminator_dims,
                                                                                  self.train_phase,
-                                                                                 activation=leaky_relu,
+                                                                                 activation=self.leaky_relu,
                                                                                  scope_name="discriminator",
                                                                                  scope_reuse=True)
 
@@ -206,7 +210,7 @@ class GAN(object):
         # utils.add_activation_summary(tf.identity(discriminator_fake_prob, name='disc_fake_prob'))
 
         # Loss calculation
-        self._gan_loss(logits_real, logits_fake, feature_real, feature_fake, use_features=improved_gan_loss)
+        self._gan_loss(self.logits_real, self.logits_fake, feature_real, feature_fake, use_features=improved_gan_loss)
 
         train_variables = tf.trainable_variables()
 
@@ -214,9 +218,9 @@ class GAN(object):
             # print (v.op.name)
             utils.add_to_regularization_and_summary(var=v)
 
-        self.generator_variables = [v for v in train_variables if v.name.startswith("generator")]
+        self.generator_variables = [v for v in train_variables if v.name.startswith(self.root_scope_name+"generator")]
         # print(map(lambda x: x.op.name, generator_variables))
-        self.discriminator_variables = [v for v in train_variables if v.name.startswith("discriminator")]
+        self.discriminator_variables = [v for v in train_variables if v.name.startswith(self.root_scope_name+"discriminator")]
         # print(map(lambda x: x.op.name, discriminator_variables))
 
         optim = self._get_optimizer(optimizer, learning_rate, optimizer_param)
@@ -225,7 +229,7 @@ class GAN(object):
         self.discriminator_train_op = self._train(self.discriminator_loss, self.discriminator_variables, optim)
 
     def initialize_network(self, logs_dir, checkpoint_file=None):
-        print("Initializing network...")
+        print(self.root_scope_name+"Initializing network...")
         self.logs_dir = logs_dir
         self.sess = tf.Session()
         self.summary_op = tf.summary.merge_all()
@@ -241,7 +245,7 @@ class GAN(object):
             checkpoint_file = logs_dir + "/" + checkpoint_file
         if checkpoint_file:
             self.saver.restore(self.sess, checkpoint_file)
-            print("Model restored from file %s" % checkpoint_file)
+            print(self.root_scope_name+"Model restored from file %s" % checkpoint_file)
         self.coord = tf.train.Coordinator()
         self.threads = tf.train.start_queue_runners(self.sess, self.coord)
 
@@ -253,54 +257,49 @@ class GAN(object):
                     feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
                     return feed_dict
 
-    def train_model(self, max_iterations):
-        print("Training model...")
+    def run_training_step(self, itr, feed_dict, batch_start_time):
+        for critic_itr in range(self.critic_iterations):
+            self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
+            self.dis_post_update()
 
+        self.sess.run(self.generator_train_op, feed_dict=feed_dict)
+
+        if itr % 100 == 0:
+            summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
+            self.summary_writer.add_summary(summary_str, itr)
+
+        if itr % 2000 == 0:
+            batch_stop_time = time.time()
+            duration = (batch_stop_time - batch_start_time) / 2000.0
+            batch_start_time = batch_stop_time
+            g_loss_val, d_loss_val = self.sess.run(
+                [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
+            print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
+
+        if itr % 5000 == 0:
+            self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
+        return batch_start_time
+
+    def train_model(self, max_iterations):
+        print(self.root_scope_name+"Training model...")
         start_time = time.time()
         batch_start_time = time.time()
         try:
             for itr in xrange(1, max_iterations):
-
-                critic_itrs = self.critic_iterations
-
-                for critic_itr in range(critic_itrs):
-                    self.sess.run(self.discriminator_train_op, feed_dict=self.get_feed_dict(True))
-                    self.dis_post_update()
-
-                feed_dict = self.get_feed_dict(True)
-                self.sess.run(self.generator_train_op, feed_dict=feed_dict)
-
-                if itr % 100 == 0:
-                    summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
-                    self.summary_writer.add_summary(summary_str, itr)
-
-                if itr % 2000 == 0:
-                    batch_stop_time = time.time()
-                    duration = (batch_stop_time - batch_start_time) / 2000.0
-                    batch_start_time = batch_stop_time
-                    g_loss_val, d_loss_val = self.sess.run(
-                        [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
-                    print("Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
-
-                if itr % 5000 == 0:
-                    logdir = self.logs_dir+"step"+str(itr) + "/"
-                    if not os.path.exists(logdir):
-                        os.makedirs(logdir)
-                    self.saver.save(self.sess, logdir+ "model.ckpt", global_step=itr)
-                    self.visualize_model(logdir=logdir)
+                batch_start_time = self.run_training_step(itr, self.get_feed_dict(True), batch_start_time)
         except tf.errors.OutOfRangeError:
-            print('Done training -- epoch limit reached')
+            print(self.root_scope_name+'Done training -- epoch limit reached')
         except KeyboardInterrupt:
-            print("Ending Training...")
+            print(self.root_scope_name+"Ending Training...")
         finally:
-            print("Total training time: %g" % (time.time()-start_time))
+            print(self.root_scope_name+"Total training time: %g" % (time.time()-start_time))
             self.coord.request_stop()
             self.coord.join(self.threads)  # Wait for threads to finish.
 
     def visualize_model(self, logdir=None):
         if not logdir:
             logdir = self.logs_dir
-        print("Sampling images from model...")
+        print(self.root_scope_name+"Sampling images from model...")
         batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
         feed_dict = {self.z_vec: batch_z, self.train_phase: False}
 

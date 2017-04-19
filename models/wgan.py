@@ -17,9 +17,9 @@ from models.gan import GAN
 
 class WasserstienGAN(GAN):
     def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, clip_values=(-0.01, 0.01),
-                 critic_iterations=5):
+                 critic_iterations=5, root_scope_name=''):
         self.clip_values = clip_values
-        GAN.__init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations)
+        GAN.__init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations, root_scope_name)
 
     def _generator(self, z, dims, train_phase, activation=tf.nn.relu, scope_name="generator"):
         N = len(dims)
@@ -77,8 +77,10 @@ class WasserstienGAN(GAN):
             h_pred = utils.conv2d_strided(h, W_pred, b)
         return None, h_pred, None  # Return the last convolution output. None values are returned to maintatin disc from other GAN
 
+    def _dis_loss(self, logits_real, logits_fake):
+        return tf.reduce_mean(logits_real - logits_fake)
     def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
-        self.discriminator_loss = tf.reduce_mean(logits_real - logits_fake)
+        self.discriminator_loss = self._dis_loss(logits_real, logits_fake)
         self.gen_loss = tf.reduce_mean(logits_fake)
 
         tf.summary.scalar("Discriminator_loss", self.discriminator_loss)

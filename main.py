@@ -32,24 +32,27 @@ def main(argv=None):
     discriminator_dims = [3, 64, 64 * 2, 64 * 4, 64 * 8, 1]
 
     crop_image_size, resized_image_size = map(int, FLAGS.image_size.split(','))
-    if FLAGS.model == 0:
-        model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1)
-    elif FLAGS.model == 1:
-        model = WasserstienGAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,
-                               clip_values=(-0.01, 0.01), critic_iterations=25)
-    else:
-        raise ValueError("Unknown model identifier - FLAGS.model=%d" % FLAGS.model)
-
-    model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
-                         FLAGS.optimizer_param)
-
-    model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
-
-    if FLAGS.mode == "train":
-        model.train_model(int(1 + FLAGS.iterations))
-    elif FLAGS.mode == "visualize":
-        model.visualize_model()
-
+    # if FLAGS.model == 0:
+    #     model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1)
+    # elif FLAGS.model == 1:
+    #     model = WasserstienGAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,
+    #                            clip_values=(-0.01, 0.01), critic_iterations=25)
+    # else:
+    #     raise ValueError("Unknown model identifier - FLAGS.model=%d" % FLAGS.model)
+    #
+    # model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
+    #                      FLAGS.optimizer_param)
+    #
+    # model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
+    #
+    # if FLAGS.mode == "train":
+    #     model.train_model(int(1 + FLAGS.iterations))
+    # elif FLAGS.mode == "visualize":
+    #     model.visualize_model()
+    import cross_dis
+    cross_dis.run(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,
+                  generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate, FLAGS.optimizer_param,
+                  FLAGS.logs_dir, FLAGS.checkpoint_file, int(FLAGS.iterations))
 
 if __name__ == "__main__":
     tf.app.run()
