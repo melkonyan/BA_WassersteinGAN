@@ -6,6 +6,8 @@ Tensorflow implementation of Wasserstein GAN
 """
 import numpy as np
 import tensorflow as tf
+np.random.seed(42)
+tf.set_random_seed(42)
 from models.GAN_models import *
 
 FLAGS = tf.flags.FLAGS
