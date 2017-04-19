@@ -33,10 +33,10 @@ def main(argv=None):
 
     crop_image_size, resized_image_size = map(int, FLAGS.image_size.split(','))
     if FLAGS.model == 0:
-        model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir)
+        model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1)
     elif FLAGS.model == 1:
         model = WasserstienGAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,
-                               clip_values=(-0.01, 0.01), critic_iterations=5)
+                               clip_values=(-0.01, 0.01), critic_iterations=25)
     else:
         raise ValueError("Unknown model identifier - FLAGS.model=%d" % FLAGS.model)
 

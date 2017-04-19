@@ -261,18 +261,13 @@ class GAN(object):
         try:
             for itr in xrange(1, max_iterations):
 
-
-
-                if itr < 25 or itr % 500 == 0:
-                    critic_itrs = 25
-                else:
-                    critic_itrs = self.critic_iterations
+                critic_itrs = self.critic_iterations
 
                 for critic_itr in range(critic_itrs):
-                    self.sess.run(self.discriminator_train_op, feed_dict=get_feed_dict(True))
+                    self.sess.run(self.discriminator_train_op, feed_dict=self.get_feed_dict(True))
                     self.dis_post_update()
 
-                feed_dict = get_feed_dict(True)
+                feed_dict = self.get_feed_dict(True)
                 self.sess.run(self.generator_train_op, feed_dict=feed_dict)
 
                 if itr % 100 == 0:

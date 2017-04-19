@@ -12,7 +12,7 @@ if utils_folder not in sys.path:
 
 import utils as utils
 from six.moves import xrange
-from models.GAN import GAN
+from models.gan import GAN
 
 
 class WasserstienGAN(GAN):
