@@ -229,10 +229,10 @@ class GAN(object):
         self.generator_train_op = self._train(self.gen_loss, self.generator_variables, optim)
         self.discriminator_train_op = self._train(self.discriminator_loss, self.discriminator_variables, optim)
 
-    def initialize_network(self, logs_dir, checkpoint_file=None):
+    def initialize_network(self, logs_dir, checkpoint_file=None, session=None):
         print(self.root_scope_name+"Initializing network...")
         self.logs_dir = logs_dir
-        self.sess = tf.Session()
+        self.sess = tf.Session() if not session else session
         self.summary_op = tf.summary.merge_all() if not self.root_scope_name else tf.summary.merge_all(self.root_scope_name)
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.logs_dir, self.sess.graph)
@@ -247,8 +247,6 @@ class GAN(object):
         if checkpoint_file:
             self.saver.restore(self.sess, checkpoint_file)
             print(self.root_scope_name+"Model restored from file %s" % checkpoint_file)
-        self.coord = tf.train.Coordinator()
-        self.threads = tf.train.start_queue_runners(self.sess, self.coord)
 
     def dis_post_update(self):
         pass
@@ -282,6 +280,8 @@ class GAN(object):
         return batch_start_time
 
     def train_model(self, max_iterations):
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(self.sess, coord)
         print(self.root_scope_name+"Training model...")
         start_time = time.time()
         batch_start_time = time.time()
@@ -294,8 +294,8 @@ class GAN(object):
             print(self.root_scope_name+"Ending Training...")
         finally:
             print(self.root_scope_name+"Total training time: %g" % (time.time()-start_time))
-            self.coord.request_stop()
-            self.coord.join(self.threads)  # Wait for threads to finish.
+            coord.request_stop()
+            coord.join(threads)  # Wait for threads to finish.
 
     def visualize_model(self, logdir=None):
         if not logdir:
