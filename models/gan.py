@@ -263,6 +263,9 @@ class GAN(object):
             self.dis_post_update()
 
         self.sess.run(self.generator_train_op, feed_dict=feed_dict)
+        if itr % 100 == 0:
+            summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
+            self.summary_writer.add_summary(summary_str, itr)
 
         return time.time() - start_time
 
@@ -276,9 +279,6 @@ class GAN(object):
             for itr in xrange(1, max_iterations):
                 feed_dict = self.get_feed_dict(True)
                 batch_start_time = self.run_training_step(itr, feed_dict, batch_start_time)
-                if itr % 100 == 0:
-                    summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
-                    self.summary_writer.add_summary(summary_str, itr)
                 if itr % 2000 == 0:
                     batch_stop_time = time.time()
                     duration = (batch_stop_time - batch_start_time) / 2000.0
