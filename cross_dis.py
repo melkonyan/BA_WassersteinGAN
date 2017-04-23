@@ -9,6 +9,14 @@ from models.wgan import WasserstienGAN
 from six.moves import xrange
 import time
 
+
+def s_to_hms(seconds):
+    seconds = int(seconds)
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return "%d:%02d:%02d" % (h, m, s)
+
+
 def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, generator_dims, discriminator_dims, optimizer,
         learning_rate, optimizer_param, logs_dir, checkpoint_file, max_iterations):
     print("Running discriminator cross validation")
@@ -25,7 +33,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
         gan_dis_wgan_gen_loss = gan._dis_loss(gan.logits_real, gan_dis_wgan_gen)
-        tf.summary.scalar('gan_discriminator_wgan_generator', gan_dis_wgan_gen_loss)
+        tf.summary.scalar('gan_discriminator_wgan_generator', gan_dis_wgan_gen_loss, collections=['GAN/'])
 
     with tf.variable_scope('WGAN'):
         _, wgan_dis_gan_gen, _ = wgan._discriminator(gan.gen_images, discriminator_dims,
@@ -34,7 +42,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
         wgan_dis_gan_gen_loss = wgan._dis_loss(wgan.logits_real, wgan_dis_gan_gen)
-        tf.summary.scalar('gan_discriminator_wgan_generator', wgan_dis_gan_gen_loss)
+        tf.summary.scalar('gan_discriminator_wgan_generator', wgan_dis_gan_gen_loss, collections=['WGAN/'])
 
     session = tf.Session()
     with tf.variable_scope('GAN'):
@@ -45,16 +53,18 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(session, coord)
 
-    gan_batch_time = time.time()
-    wgan_batch_time = time.time()
+    gan_time = 0.0
+    wgan_time = 0.0
 
     for itr in xrange(1, max_iterations):
         gan_feed_dict = gan.get_feed_dict(True)
         wgan_feed_dict = wgan.get_feed_dict(True)
         merged_feed_dict = gan_feed_dict.copy()
         merged_feed_dict.update(wgan_feed_dict)
-        gan_batch_time = gan.run_training_step(itr, merged_feed_dict, gan_batch_time)
-        wgan_batch_time = wgan.run_training_step(itr, merged_feed_dict, wgan_batch_time)
+        gan_time += gan.run_training_step(itr, merged_feed_dict)
+        wgan_time += wgan.run_training_step(itr, merged_feed_dict)
+        if itr % 2000 == 0:
+            print("Step: %d, GAN time: %s, WGAN time: %s" % (itr, s_to_hms(gan_time), s_to_hms(wgan_time)))
 
     coord.request_stop()
     coord.join(threads)  # Wait for threads to finish.

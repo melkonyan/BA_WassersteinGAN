@@ -256,28 +256,15 @@ class GAN(object):
                     feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
                     return feed_dict
 
-    def run_training_step(self, itr, feed_dict, batch_start_time):
+    def run_training_step(self, itr, feed_dict):
+        start_time = time.time()
         for critic_itr in range(self.critic_iterations):
             self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
             self.dis_post_update()
 
         self.sess.run(self.generator_train_op, feed_dict=feed_dict)
 
-        if itr % 100 == 0:
-            summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
-            self.summary_writer.add_summary(summary_str, itr)
-
-        if itr % 2000 == 0:
-            batch_stop_time = time.time()
-            duration = (batch_stop_time - batch_start_time) / 2000.0
-            batch_start_time = batch_stop_time
-            g_loss_val, d_loss_val = self.sess.run(
-                [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
-            print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
-
-        if itr % 5000 == 0:
-            self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
-        return batch_start_time
+        return time.time() - start_time
 
     def train_model(self, max_iterations):
         coord = tf.train.Coordinator()
@@ -287,7 +274,22 @@ class GAN(object):
         batch_start_time = time.time()
         try:
             for itr in xrange(1, max_iterations):
-                batch_start_time = self.run_training_step(itr, self.get_feed_dict(True), batch_start_time)
+                feed_dict = self.get_feed_dict(True)
+                batch_start_time = self.run_training_step(itr, feed_dict, batch_start_time)
+                if itr % 100 == 0:
+                    summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
+                    self.summary_writer.add_summary(summary_str, itr)
+                if itr % 2000 == 0:
+                    batch_stop_time = time.time()
+                    duration = (batch_stop_time - batch_start_time) / 2000.0
+                    batch_start_time = batch_stop_time
+                    g_loss_val, d_loss_val = self.sess.run(
+                        [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
+                    print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
+
+                if itr % 5000 == 0:
+                    self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
+
         except tf.errors.OutOfRangeError:
             print(self.root_scope_name+'Done training -- epoch limit reached')
         except KeyboardInterrupt:
