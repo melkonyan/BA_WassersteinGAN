@@ -171,14 +171,14 @@ def add_to_regularization_and_summary(var):
         tf.add_to_collection("reg_loss", tf.nn.l2_loss(var))
 
 
-def add_activation_summary(var):
-    tf.summary.histogram(var.op.name + "/activation", var)
-    tf.summary.scalar(var.op.name + "/sparsity", tf.nn.zero_fraction(var))
+def add_activation_summary(var, collections=None):
+    tf.summary.histogram(var.op.name + "/activation", var, collections=collections)
+    tf.summary.scalar(var.op.name + "/sparsity", tf.nn.zero_fraction(var), collections=collections)
 
 
-def add_gradient_summary(grad, var):
+def add_gradient_summary(grad, var, collections=None):
     if grad is not None:
-        tf.summary.histogram(var.op.name + "/gradient", grad)
+        tf.summary.histogram(var.op.name + "/gradient", grad, collections=collections)
 
 def save_imshow_grid(images, logs_dir, filename, shape):
     """

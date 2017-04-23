@@ -30,7 +30,7 @@ class WasserstienGAN(GAN):
             h_z = tf.reshape(h_z, [-1, image_size, image_size, dims[0]])
             h_bnz = utils.batch_norm(h_z, dims[0], train_phase, scope="gen_bnz")
             h = activation(h_bnz, name='h_z')
-            utils.add_activation_summary(h)
+            utils.add_activation_summary(h, collections=self.summary_collections)
 
             for index in range(N - 2):
                 image_size *= 2
@@ -40,7 +40,7 @@ class WasserstienGAN(GAN):
                 h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
                 h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
                 h = activation(h_bn, name='h_%d' % index)
-                utils.add_activation_summary(h)
+                utils.add_activation_summary(h, collections=self.summary_collections)
 
             image_size *= 2
             W_pred = utils.weight_variable([4, 4, dims[-1], dims[-2]], name="W_pred")
@@ -48,7 +48,7 @@ class WasserstienGAN(GAN):
             deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
             h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b, output_shape=deconv_shape)
             pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
-            utils.add_activation_summary(pred_image)
+            utils.add_activation_summary(pred_image, collections=self.summary_collections)
 
         return pred_image
 
@@ -70,7 +70,7 @@ class WasserstienGAN(GAN):
                 else:
                     h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase, scope="disc_bn%d" % index)
                 h = activation(h_bn, name="h_%d" % index)
-                utils.add_activation_summary(h)
+                utils.add_activation_summary(h, collections=self.summary_collections)
 
             W_pred = utils.weight_variable([4, 4, dims[-2], dims[-1]], name="W_pred")
             b = tf.zeros([dims[-1]])
@@ -79,12 +79,13 @@ class WasserstienGAN(GAN):
 
     def _dis_loss(self, logits_real, logits_fake):
         return tf.reduce_mean(logits_real - logits_fake)
+
     def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
         self.discriminator_loss = self._dis_loss(logits_real, logits_fake)
         self.gen_loss = tf.reduce_mean(logits_fake)
 
-        tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
-        tf.summary.scalar("Generator_loss", self.gen_loss)
+        tf.summary.scalar("Discriminator_loss", self.discriminator_loss, collections=self.summary_collections)
+        tf.summary.scalar("Generator_loss", self.gen_loss, collections=self.summary_collections)
 
     def create_network(self, generator_dims, discriminator_dims, optimizer="Adam", learning_rate=2e-4,
                        optimizer_param=0.9, improved_gan_loss=True):

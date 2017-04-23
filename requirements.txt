@@ -1,6 +1,6 @@
 matplotlib
 numpy
-tensorflow-gpu
+tensorflow-gpu==1.0.1
 pillow
 scipy
 six
