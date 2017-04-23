@@ -21,7 +21,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
         learning_rate, optimizer_param, logs_dir, checkpoint_file, max_iterations):
     print("Running discriminator cross validation")
     with tf.variable_scope('GAN'):
-        gan = GAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='GAN/')
+        gan = GAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='GAN/', critic_iterations=2)
         gan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
     with tf.variable_scope('WGAN'):
         wgan = WasserstienGAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='WGAN/')
@@ -42,7 +42,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
         wgan_dis_gan_gen_loss = wgan._dis_loss(wgan.logits_real, wgan_dis_gan_gen)
-        tf.summary.scalar('gan_discriminator_wgan_generator', wgan_dis_gan_gen_loss, collections=['WGAN/'])
+        tf.summary.scalar('wgan_discriminator_gan_generator', wgan_dis_gan_gen_loss, collections=['WGAN/'])
 
     session = tf.Session()
     with tf.variable_scope('GAN'):
