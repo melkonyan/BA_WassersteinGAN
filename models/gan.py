@@ -267,6 +267,9 @@ class GAN(object):
             summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
             self.summary_writer.add_summary(summary_str, itr)
 
+        if itr % 5000 == 0:
+            self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
+
         return time.time() - start_time
 
     def train_model(self, max_iterations):
@@ -287,8 +290,6 @@ class GAN(object):
                         [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
                     print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
 
-                if itr % 5000 == 0:
-                    self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
 
         except tf.errors.OutOfRangeError:
             print(self.root_scope_name+'Done training -- epoch limit reached')
