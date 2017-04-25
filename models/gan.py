@@ -289,7 +289,7 @@ class GAN(object):
                     g_loss_val, d_loss_val = self.sess.run(
                         [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
                     print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
-
+                    sys.stdout.flush()
 
         except tf.errors.OutOfRangeError:
             print(self.root_scope_name+'Done training -- epoch limit reached')
