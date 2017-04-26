@@ -6,8 +6,6 @@ Tensorflow implementation of Wasserstein GAN
 """
 import numpy as np
 import tensorflow as tf
-np.random.seed(42)
-tf.set_random_seed(42)
 from models.gan import GAN
 from models.wgan import WasserstienGAN
 
