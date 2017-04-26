@@ -56,9 +56,9 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
     gan_time = 0.0
     wgan_time = 0.0
 
-    def get_feed_dict():
-        gan_feed_dict = gan.get_feed_dict(True)
-        wgan_feed_dict = wgan.get_feed_dict(True)
+    def get_feed_dict(train_phase):
+        gan_feed_dict = gan.get_feed_dict(train_phase)
+        wgan_feed_dict = wgan.get_feed_dict(train_phase)
         merged_feed_dict = gan_feed_dict.copy()
         merged_feed_dict.update(wgan_feed_dict)
         return merged_feed_dict

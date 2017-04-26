@@ -264,7 +264,7 @@ class GAN(object):
             self.sess.run(self.discriminator_train_op, feed_dict=get_feed_dict(True))
             self.dis_post_update()
 
-        feed_dict = get_feed_dict
+        feed_dict = get_feed_dict(True)
         self.sess.run(self.generator_train_op, feed_dict=feed_dict)
         if itr % 100 == 0:
             summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
