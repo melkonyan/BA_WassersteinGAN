@@ -256,19 +256,19 @@ class GAN(object):
                     feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
                     return feed_dict
 
-    def run_training_step(self, itr, feed_dict):
+    def run_training_step(self, itr, get_feed_dict):
+        if not get_feed_dict:
+            get_feed_dict = self.get_feed_dict
         start_time = time.time()
         for critic_itr in range(self.critic_iterations):
-            self.sess.run(self.discriminator_train_op, feed_dict=feed_dict)
+            self.sess.run(self.discriminator_train_op, feed_dict=get_feed_dict(True))
             self.dis_post_update()
 
+        feed_dict = get_feed_dict
         self.sess.run(self.generator_train_op, feed_dict=feed_dict)
         if itr % 100 == 0:
             summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
             self.summary_writer.add_summary(summary_str, itr)
-
-        if itr % 5000 == 0:
-            self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
 
         return time.time() - start_time
 
@@ -289,6 +289,8 @@ class GAN(object):
                     g_loss_val, d_loss_val = self.sess.run(
                         [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
                     print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
+                if itr % 5000 == 0:
+                    self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
 
 
         except tf.errors.OutOfRangeError:

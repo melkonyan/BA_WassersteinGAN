@@ -33,7 +33,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
         gan_dis_wgan_gen_loss = gan._dis_loss(gan.logits_real, gan_dis_wgan_gen)
-        tf.summary.scalar('gan_discriminator_wgan_generator', gan_dis_wgan_gen_loss, collections=['GAN/'])
+        tf.summary.scalar('gan_dis_wgan_gen', gan_dis_wgan_gen_loss, collections=['GAN/'])
 
     with tf.variable_scope('WGAN'):
         _, wgan_dis_gan_gen, _ = wgan._discriminator(gan.gen_images, discriminator_dims,
@@ -42,7 +42,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
         wgan_dis_gan_gen_loss = wgan._dis_loss(wgan.logits_real, wgan_dis_gan_gen)
-        tf.summary.scalar('wgan_discriminator_gan_generator', wgan_dis_gan_gen_loss, collections=['WGAN/'])
+        tf.summary.scalar('wgan_dis_gan_gen', wgan_dis_gan_gen_loss, collections=['WGAN/'])
 
     session = tf.Session()
     with tf.variable_scope('GAN'):
@@ -56,15 +56,21 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
     gan_time = 0.0
     wgan_time = 0.0
 
-    for itr in xrange(1, max_iterations):
+    def get_feed_dict():
         gan_feed_dict = gan.get_feed_dict(True)
         wgan_feed_dict = wgan.get_feed_dict(True)
         merged_feed_dict = gan_feed_dict.copy()
         merged_feed_dict.update(wgan_feed_dict)
-        gan_time += gan.run_training_step(itr, merged_feed_dict)
-        wgan_time += wgan.run_training_step(itr, merged_feed_dict)
+        return merged_feed_dict
+
+    for itr in xrange(1, max_iterations):
+        gan_time += gan.run_training_step(itr, get_feed_dict)
+        wgan_time += wgan.run_training_step(itr, get_feed_dict)
         if itr % 2000 == 0:
             print("Step: %d, GAN time: %s, WGAN time: %s" % (itr, s_to_hms(gan_time), s_to_hms(wgan_time)))
+        if itr % 5000 == 0:
+            gan.saver.save(session, logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
+
 
     coord.request_stop()
     coord.join(threads)  # Wait for threads to finish.
