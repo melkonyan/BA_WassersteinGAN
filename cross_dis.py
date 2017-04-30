@@ -1,9 +1,6 @@
 import tensorflow as tf
 import numpy as np
 
-tf.set_random_seed(42)
-np.random.seed(42)
-
 from models.gan import GAN
 from models.wgan import WasserstienGAN
 from six.moves import xrange
@@ -21,10 +18,10 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
         learning_rate, optimizer_param, logs_dir, checkpoint_file, max_iterations):
     print("Running discriminator cross validation")
     with tf.variable_scope('GAN'):
-        gan = GAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='GAN/', critic_iterations=2)
+        gan = GAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='GAN/', critic_iterations=1)
         gan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
     with tf.variable_scope('WGAN'):
-        wgan = WasserstienGAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='WGAN/')
+        wgan = WasserstienGAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='WGAN/', critic_iterations=25)
         wgan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
     with tf.variable_scope('GAN'):
         _, gan_dis_wgan_gen, _ = gan._discriminator(wgan.gen_images, discriminator_dims,
@@ -69,7 +66,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
         if itr % 2000 == 0:
             print("Step: %d, GAN time: %s, WGAN time: %s" % (itr, s_to_hms(gan_time), s_to_hms(wgan_time)))
         if itr % 5000 == 0:
-            gan.saver.save(session, logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
+            wgan.saver.save(session, logs_dir+ "/model-%d.ckpt" % itr, global_step=itr)
 
 
     coord.request_stop()
