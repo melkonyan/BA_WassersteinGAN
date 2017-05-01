@@ -245,6 +245,7 @@ class GAN(object):
         else :
             checkpoint_file = logs_dir + "/" + checkpoint_file
         if checkpoint_file:
+            print(checkpoint_file)
             self.saver.restore(self.sess, checkpoint_file)
             print(self.root_scope_name+"Model restored from file %s" % checkpoint_file)
 
@@ -313,6 +314,6 @@ class GAN(object):
         images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
         shape = [4, self.batch_size // 4]
         utils.save_imshow_grid(images, logdir, "generated_palette.png", shape=shape)
-        for i in range(len(images)):
-            scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
+        #for i in range(len(images)):
+        #    scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
 
