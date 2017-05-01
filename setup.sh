@@ -1,4 +1,4 @@
-#!/bin/bah
+#!/bin/bash
 
 ./install_sys_libs.sh
 pip3 install -r requirements.txt

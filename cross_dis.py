@@ -1,9 +1,6 @@
 import tensorflow as tf
 import numpy as np
 
-tf.set_random_seed(42)
-np.random.seed(42)
-
 from models.gan import GAN
 from models.wgan import WasserstienGAN
 from six.moves import xrange
@@ -56,9 +53,9 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
     gan_time = 0.0
     wgan_time = 0.0
 
-    def get_feed_dict():
-        gan_feed_dict = gan.get_feed_dict(True)
-        wgan_feed_dict = wgan.get_feed_dict(True)
+    def get_feed_dict(train_phase):
+        gan_feed_dict = gan.get_feed_dict(train_phase)
+        wgan_feed_dict = wgan.get_feed_dict(train_phase)
         merged_feed_dict = gan_feed_dict.copy()
         merged_feed_dict.update(wgan_feed_dict)
         return merged_feed_dict
@@ -69,8 +66,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
         if itr % 2000 == 0:
             print("Step: %d, GAN time: %s, WGAN time: %s" % (itr, s_to_hms(gan_time), s_to_hms(wgan_time)))
         if itr % 5000 == 0:
-            gan.saver.save(session, logs_dir+ "/model-%d.ckpt" % itr, global_step=itr)
-
+            wgan.saver.save(session, logs_dir+ "/model-%d.ckpt" % itr, global_step=itr)
 
     coord.request_stop()
     coord.join(threads)  # Wait for threads to finish.
