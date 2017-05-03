@@ -9,6 +9,8 @@ import tensorflow as tf
 from models.gan import GAN
 from models.wgan import WasserstienGAN
 
+np.random.seed(42)
+tf.set_random_seed(42)
 FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "64", "batch size for training")
 tf.flags.DEFINE_string("logs_dir", "logs/CelebA_GAN_logs/", "path to logs directory")

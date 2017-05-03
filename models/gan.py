@@ -313,7 +313,7 @@ class GAN(object):
         images = self.sess.run(self.gen_images, feed_dict=feed_dict)
         images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
         shape = [4, self.batch_size // 4]
-        utils.save_imshow_grid(images, logdir, "generated_palette.png", shape=shape)
-        #for i in range(len(images)):
-        #    scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
+        #utils.save_imshow_grid(images, logdir, "generated_palette.png", shape=shape)
+        for i in range(1):
+            scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
 
