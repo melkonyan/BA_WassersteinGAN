@@ -21,7 +21,7 @@ def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, genera
         gan = GAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='GAN/', critic_iterations=1)
         gan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
     with tf.variable_scope('WGAN'):
-        wgan = WasserstienGAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='WGAN/', critic_iterations=25)
+        wgan = WasserstienGAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='WGAN/', critic_iterations=5)
         wgan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
     with tf.variable_scope('GAN'):
         _, gan_dis_wgan_gen, _ = gan._discriminator(wgan.gen_images, discriminator_dims,
