@@ -33,19 +33,22 @@ def main(argv=None):
 
     crop_image_size, resized_image_size = map(int, FLAGS.image_size.split(','))
     if FLAGS.model == 0:
-        model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1)
+        with tf.variable_scope('GAN'):
+            model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1, root_scope_name='GAN/')
+            model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
+                         FLAGS.optimizer_param)
+            model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
     elif FLAGS.model == 1:
         with tf.variable_scope('WGAN'):
             model = WasserstienGAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,
                                clip_values=(-0.01, 0.01), critic_iterations=25, root_scope_name='WGAN/')
             model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
                          FLAGS.optimizer_param)
+            model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
 
     else:
         raise ValueError("Unknown model identifier - FLAGS.model=%d" % FLAGS.model)
 
-    with tf.variable_scope('WGAN'):
-        model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
 
     if FLAGS.mode == "train":
         model.train_model(int(1 + FLAGS.iterations))
