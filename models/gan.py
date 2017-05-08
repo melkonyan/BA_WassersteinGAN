@@ -16,6 +16,7 @@ from six.moves import xrange
 
 
 class GAN(object):
+
     def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations=5, root_scope_name=''):
         celebA_dataset = celebA.read_dataset(data_dir)
         self.root_scope_name = root_scope_name
@@ -261,7 +262,16 @@ class GAN(object):
         if not get_feed_dict:
             get_feed_dict = self.get_feed_dict
         start_time = time.time()
-        for critic_itr in range(self.critic_iterations):
+        use_multiple_critic_iterations = self.critic_iterations > 1
+        if use_multiple_critic_iterations:
+            if itr < 25 or itr % 500 == 0:
+                critic_itrs = 25
+            else:
+                critic_itrs = self.critic_iterations
+        else:
+            critic_itrs = 1
+
+        for critic_itr in range(critic_itrs):
             self.sess.run(self.discriminator_train_op, feed_dict=get_feed_dict(True))
             self.dis_post_update()
 
