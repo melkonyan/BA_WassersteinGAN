@@ -1,10 +1,5 @@
 import tensorflow as tf
-import numpy as np
-
-from models.gan import GAN
-from models.wgan import WasserstienGAN
 from six.moves import xrange
-import time
 
 
 def s_to_hms(seconds):
@@ -14,59 +9,52 @@ def s_to_hms(seconds):
     return "%d:%02d:%02d" % (h, m, s)
 
 
-def run(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, generator_dims, discriminator_dims, optimizer,
-        learning_rate, optimizer_param, logs_dir, checkpoint_file, max_iterations):
+def run(gan1, gan2, gan1_scope_name, gan2_scope_name, discriminator_dims, logs_dir, checkpoint_file, max_iterations):
     print("Running discriminator cross validation")
-    with tf.variable_scope('GAN'):
-        gan = GAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='GAN/', critic_iterations=1)
-        gan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
-    with tf.variable_scope('WGAN'):
-        wgan = WasserstienGAN(z_dim, crop_image_size, resized_image_size, batch_size, data_dir, root_scope_name='WGAN/', critic_iterations=5)
-        wgan.create_network(generator_dims, discriminator_dims, optimizer, learning_rate, optimizer_param)
-    with tf.variable_scope('GAN'):
-        _, gan_dis_wgan_gen, _ = gan._discriminator(wgan.gen_images, discriminator_dims,
-                                                    gan.train_phase,
-                                                    activation=gan.leaky_relu,
+    with tf.variable_scope(gan1_scope_name):
+        _, gan_dis_wgan_gen, _ = gan1._discriminator(gan2.gen_images, discriminator_dims,
+                                                    gan1.train_phase,
+                                                    activation=gan1.leaky_relu,
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
-        gan_dis_wgan_gen_loss = gan._dis_loss(gan.logits_real, gan_dis_wgan_gen)
-        tf.summary.scalar('gan_dis_wgan_gen', gan_dis_wgan_gen_loss, collections=['GAN/'])
+        gan_dis_wgan_gen_loss = gan1._dis_loss(gan1.logits_real, gan_dis_wgan_gen)
+        tf.summary.scalar('%s_dis_%s_gen' % (gan1_scope_name, gan2_scope_name), gan_dis_wgan_gen_loss, collections=gan1.summary_collections)
 
-    with tf.variable_scope('WGAN'):
-        _, wgan_dis_gan_gen, _ = wgan._discriminator(gan.gen_images, discriminator_dims,
-                                                    wgan.train_phase,
-                                                    activation=wgan.leaky_relu,
+    with tf.variable_scope(gan2_scope_name):
+        _, wgan_dis_gan_gen, _ = gan2._discriminator(gan1.gen_images, discriminator_dims,
+                                                    gan2.train_phase,
+                                                    activation=gan2.leaky_relu,
                                                     scope_name="discriminator",
                                                     scope_reuse=True)
-        wgan_dis_gan_gen_loss = wgan._dis_loss(wgan.logits_real, wgan_dis_gan_gen)
-        tf.summary.scalar('wgan_dis_gan_gen', wgan_dis_gan_gen_loss, collections=['WGAN/'])
+        wgan_dis_gan_gen_loss = gan2._dis_loss(gan2.logits_real, wgan_dis_gan_gen)
+        tf.summary.scalar('%s_dis_%s_gen' % (gan2_scope_name, gan1_scope_name), wgan_dis_gan_gen_loss, collections=gan2.summary_collections)
 
     session = tf.Session()
-    with tf.variable_scope('GAN'):
-        gan.initialize_network(logs_dir, checkpoint_file, session=session)
-    with tf.variable_scope('WGAN'):
-        wgan.initialize_network(logs_dir, checkpoint_file, session=session)
+    with tf.variable_scope(gan1_scope_name):
+        gan1.initialize_network(logs_dir, checkpoint_file, session=session)
+    with tf.variable_scope(gan2_scope_name):
+        gan2.initialize_network(logs_dir, checkpoint_file, session=session)
 
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(session, coord)
 
-    gan_time = 0.0
-    wgan_time = 0.0
+    gan1_time = 0.0
+    gan2_time = 0.0
 
     def get_feed_dict(train_phase):
-        gan_feed_dict = gan.get_feed_dict(train_phase)
-        wgan_feed_dict = wgan.get_feed_dict(train_phase)
+        gan_feed_dict = gan1.get_feed_dict(train_phase)
+        wgan_feed_dict = gan2.get_feed_dict(train_phase)
         merged_feed_dict = gan_feed_dict.copy()
         merged_feed_dict.update(wgan_feed_dict)
         return merged_feed_dict
 
     for itr in xrange(1, max_iterations):
-        gan_time += gan.run_training_step(itr, get_feed_dict)
-        wgan_time += wgan.run_training_step(itr, get_feed_dict)
+        gan1_time += gan1.run_training_step(itr, get_feed_dict)
+        gan2_time += gan2.run_training_step(itr, get_feed_dict)
         if itr % 2000 == 0:
-            print("Step: %d, GAN time: %s, WGAN time: %s" % (itr, s_to_hms(gan_time), s_to_hms(wgan_time)))
+            print("Step: %d, %s time: %s, %s time: %s" % (itr, gan1_scope_name, s_to_hms(gan1_time), gan2_scope_name, s_to_hms(gan2_time)))
         if itr % 5000 == 0:
-            wgan.saver.save(session, logs_dir+ "/model-%d.ckpt" % itr, global_step=itr)
+            gan2.saver.save(session, logs_dir+ "/model-%d.ckpt" % itr, global_step=itr)
 
     coord.request_stop()
     coord.join(threads)  # Wait for threads to finish.
