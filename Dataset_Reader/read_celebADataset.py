@@ -56,7 +56,7 @@ def read_dataset(data_dir):
     return celebA
 
 
-def create_image_lists(image_dir, testing_percentage=0.0, validation_percentage=0.0):
+def create_image_lists(image_dir, testing_percentage=0.05, validation_percentage=0.05):
     """
     Code modified from tensorflow/tensorflow/examples/image_retraining
     """

@@ -71,10 +71,12 @@ class WasserstienGAN(GAN):
                     h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase, scope="disc_bn%d" % index)
                 h = activation(h_bn, name="h_%d" % index)
                 utils.add_activation_summary(h, collections=self.summary_collections)
+                print(h.shape)
 
             W_pred = utils.weight_variable([4, 4, dims[-2], dims[-1]], name="W_pred")
             b = tf.zeros([dims[-1]])
             h_pred = utils.conv2d_strided(h, W_pred, b)
+            print(h_pred.shape)
         return None, h_pred, None  # Return the last convolution output. None values are returned to maintatin disc from other GAN
 
     def _dis_loss(self, logits_real, logits_fake):
