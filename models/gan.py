@@ -83,21 +83,23 @@ class GAN(object):
             W_z = utils.weight_variable([self.z_dim, dims[0] * image_size * image_size], name="W_z")
             b_z = utils.bias_variable([dims[0] * image_size * image_size], name="b_z")
             h_z = tf.matmul(z, W_z) + b_z
+            print(z.shape)
+            print(h_z.shape)
             h_z = tf.reshape(h_z, [-1, image_size, image_size, dims[0]])
             h_bnz = utils.batch_norm(h_z, dims[0], train_phase, scope="gen_bnz")
             h = activation(h_bnz, name='h_z')
             utils.add_activation_summary(h, collections=self.summary_collections)
-
+            print(h.shape)
             for index in range(N - 2):
                 image_size *= 2
                 W = utils.weight_variable([5, 5, dims[index + 1], dims[index]], name="W_%d" % index)
                 b = utils.bias_variable([dims[index + 1]], name="b_%d" % index)
-                deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                deconv_shape = [tf.shape(h)[0], image_size, image_size, dims[index + 1]]
                 h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
                 h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
                 h = activation(h_bn, name='h_%d' % index)
                 utils.add_activation_summary(h, collections=self.summary_collections)
-
+                print(h.shape)
             image_size *= 2
             W_pred = utils.weight_variable([5, 5, dims[-1], dims[-2]], name="W_pred")
             b_pred = utils.bias_variable([dims[-1]], name="b_pred")
@@ -105,7 +107,7 @@ class GAN(object):
             h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b_pred, output_shape=deconv_shape)
             pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
             utils.add_activation_summary(pred_image, collections=self.summary_collections)
-
+            print(pred_image.shape)
         return pred_image
 
     def _discriminator(self, input_images, dims, train_phase, activation=tf.nn.relu, scope_name="discriminator",
@@ -115,7 +117,6 @@ class GAN(object):
             if scope_reuse:
                 scope.reuse_variables()
             h = input_images
-            print(h.shape)
             skip_bn = True  # First layer of discriminator skips batch norm
             for index in range(N - 2):
                 W = utils.weight_variable([5, 5, dims[index], dims[index + 1]], name="W_%d" % index)
@@ -131,10 +132,10 @@ class GAN(object):
                 print(h.shape)
             shape = h.get_shape().as_list()
             image_size = self.resized_image_size // (2 ** (N - 2))  # dims has input dim and output dim
-            h_reshaped = tf.reshape(h, [self.batch_size, image_size * image_size * shape[3]])
+            h_flat = tf.reshape(h, [self.batch_size, image_size * image_size * shape[3]])
             W_pred = utils.weight_variable([image_size * image_size * shape[3], dims[-1]], name="W_pred")
             b_pred = utils.bias_variable([dims[-1]], name="b_pred")
-            h_pred = tf.matmul(h_reshaped, W_pred) + b_pred
+            h_pred = tf.matmul(h_flat, W_pred) + b_pred
             print(h_pred.shape)
         return tf.nn.sigmoid(h_pred), h_pred, h
 
@@ -326,8 +327,8 @@ class GAN(object):
                                                                                  activation=self.leaky_relu,
                                                                                  scope_name="discriminator",
                                                                                  scope_reuse=True)
-        return logits_fake
-
+        #return logits_fake
+        return tf.reduce_mean(tf.round(discriminator_fake_prob))
 
     def visualize_model(self, logdir=None):
         if not logdir:

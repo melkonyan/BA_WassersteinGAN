@@ -69,7 +69,8 @@ def main(argv=None):
         threads = tf.train.start_queue_runners(model.sess, coord)
         #model.run_training_step(1, model.get_feed_dict)
         result = model.sess.run(fake_prob, feed_dict=model.get_feed_dict(True), )
-        print('%d of %d samples are considered real' % (result, model.batch_size))
+        #print('%d of %d samples are considered real' % (result, model.batch_size))
+        print(result)
         coord.request_stop()
         coord.join(threads)  # Wait for threads to finish.
     #import cross_dis
