@@ -26,8 +26,8 @@ class GAN(object):
         self.resized_image_size = resized_image_size
         self.batch_size = batch_size
         self.critic_iterations=critic_iterations
-        #filename_queue = tf.train.string_input_producer(self.celebA_dataset.train_images)
-        #self.training_batch_images = self._read_input_queue(filename_queue)
+        filename_queue = tf.train.string_input_producer(self.celebA_dataset.train_images)
+        self.training_batch_images = self._read_input_queue(filename_queue)
 
 
     def _read_input(self, filename_queue, format, post_process):
@@ -117,6 +117,7 @@ class GAN(object):
             if scope_reuse:
                 scope.reuse_variables()
             h = input_images
+            #print(h.shape)
             skip_bn = True  # First layer of discriminator skips batch norm
             for index in range(N - 2):
                 W = utils.weight_variable([5, 5, dims[index], dims[index + 1]], name="W_%d" % index)
@@ -198,7 +199,7 @@ class GAN(object):
         tf.summary.image("image_generated", self.gen_images, max_outputs=2, collections=self.summary_collections)
 
         print(self.root_scope_name+"Creating discriminator for real images")
-        discriminator_real_prob, self.logits_real, feature_real = self._discriminator(self.gen_images, discriminator_dims,
+        discriminator_real_prob, self.logits_real, feature_real = self._discriminator(self.training_batch_images, discriminator_dims,
                                                                                  self.train_phase,
                                                                                  activation=self.leaky_relu,
                                                                                  scope_name="discriminator",
@@ -315,13 +316,20 @@ class GAN(object):
             coord.request_stop()
             coord.join(threads)  # Wait for threads to finish.
 
-    def run_dis(self, test_images_dir, generator_dims, discriminator_dims, optimizer="Adam", learning_rate=2e-4,
-                       optimizer_param=0.9, improved_gan_loss=True):
-        test_images = glob.glob(os.path.join(test_images_dir, '*.png'))
-        print(test_images)
-        file_name_queue = tf.train.string_input_producer(test_images)
-        #file_name_queue = tf.train.string_input_producer(self.celebA_dataset.test_images)
-        image_batch = self._read_input_queue(file_name_queue, format='png', resize_image=False)
+    def run_dis(self, discriminator_dims, test_image=None, test_images_dir=None):
+        if test_images_dir:
+            print('Reading images from directory')
+            test_images = glob.glob(os.path.join(test_image, '*.png'))
+            print(test_images)
+            file_name_queue = tf.train.string_input_producer(test_images)
+            image_batch = self._read_input_queue(file_name_queue, format='png', resize_image=False)
+        elif test_image:
+             print('Reading image from file')
+             image_png = scipy.misc.imread(test_image)
+             image = utils.process_image(image_png).astype(np.float32)
+             image_batch = tf.constant(np.repeat(image[np.newaxis, :, :, :], self.batch_size, axis=0))
+        else:
+            raise ValueError('Either an image path or image directory should be specified.')
         discriminator_fake_prob, logits_fake, _ = self._discriminator(image_batch, discriminator_dims,
                                                                                  self.train_phase,
                                                                                  activation=self.leaky_relu,
@@ -329,6 +337,7 @@ class GAN(object):
                                                                                  scope_reuse=True)
         #return logits_fake
         return tf.reduce_mean(tf.round(discriminator_fake_prob))
+
 
     def visualize_model(self, logdir=None):
         if not logdir:
@@ -342,5 +351,5 @@ class GAN(object):
         shape = [4, self.batch_size // 4]
         #utils.save_imshow_grid(images, logdir, "generated_palette.png", shape=shape)
         for i in range(self.batch_size):
-            scipy.misc.imsave(logdir+"/test_images_wgan/generated_image%d.png" % (i+1), images[i])
+            scipy.misc.imsave(logdir+"/test_images_gan2/generated_image%d.png" % (i+1), images[i])
 

@@ -11,8 +11,8 @@ import tensorflow as tf
 from models.gan import GAN
 from models.wgan import WasserstienGAN
 
-np.random.seed(42)
-tf.set_random_seed(42)
+#np.random.seed(42)
+#tf.set_random_seed(42)
 FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer("batch_size", "64", "batch size for training")
 tf.flags.DEFINE_string("logs_dir", "logs/CelebA_GAN_logs/", "path to logs directory")
@@ -36,9 +36,9 @@ def main(argv=None):
 
     crop_image_size, resized_image_size = map(int, FLAGS.image_size.split(','))
     if FLAGS.model == 0:
-        scope_name = 'GAN'
+        scope_name = 'gan2'
         with tf.variable_scope(scope_name):
-            model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1, root_scope_name='GAN/')
+            model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1, root_scope_name='gan2/')
             model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
                          FLAGS.optimizer_param)
     elif FLAGS.model == 1:
@@ -62,17 +62,19 @@ def main(argv=None):
         model.visualize_model()
     elif FLAGS.mode == 'test':
         with tf.variable_scope(scope_name):
-            fake_prob = model.run_dis(FLAGS.test_image, generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
-                             FLAGS.optimizer_param)
+            fake_prob = model.run_dis(discriminator_dims, test_image=FLAGS.test_image)
             model.initialize_network(FLAGS.logs_dir, FLAGS.checkpoint_file)
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(model.sess, coord)
         #model.run_training_step(1, model.get_feed_dict)
-        result = model.sess.run(fake_prob, feed_dict=model.get_feed_dict(True), )
+        result = model.sess.run(fake_prob, feed_dict=model.get_feed_dict(True))
         #print('%d of %d samples are considered real' % (result, model.batch_size))
         print(result)
         coord.request_stop()
         coord.join(threads)  # Wait for threads to finish.
+    elif FLAGS.mode == 'search':
+        import test_gan
+        test_gan.find_good_images(model, 'gan2', generator_dims, discriminator_dims, FLAGS.logs_dir, FLAGS.checkpoint_file)
     #import cross_dis
     #cross_dis.run(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,
     #              generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate, FLAGS.optimizer_param,

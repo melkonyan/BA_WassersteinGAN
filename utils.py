@@ -157,7 +157,7 @@ def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.
     return normed
 
 
-def process_image(image, mean_pixel, norm):
+def process_image(image, mean_pixel=127.5, norm=127.5):
     return (image - mean_pixel) / norm
 
 
