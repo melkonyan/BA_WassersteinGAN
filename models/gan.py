@@ -5,6 +5,7 @@ import numpy as np
 import os, sys, inspect
 import time
 import scipy.misc
+
 utils_folder = os.path.realpath(
     os.path.abspath(os.path.join(os.path.split(inspect.getfile(inspect.currentframe()))[0], "..")))
 if utils_folder not in sys.path:
@@ -16,8 +17,8 @@ from six.moves import xrange
 
 
 class GAN(object):
-
-    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations=5, root_scope_name=''):
+    def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, critic_iterations=5,
+                 root_scope_name=''):
         celebA_dataset = celebA.read_dataset(data_dir)
         self.root_scope_name = root_scope_name
         self.summary_collections = None if not root_scope_name else [root_scope_name]
@@ -25,7 +26,7 @@ class GAN(object):
         self.crop_image_size = crop_image_size
         self.resized_image_size = resized_image_size
         self.batch_size = batch_size
-        self.critic_iterations=critic_iterations
+        self.critic_iterations = critic_iterations
         filename_queue = tf.train.string_input_producer(celebA_dataset.train_images)
         self.training_batch_images = self._read_input_queue(filename_queue)
 
@@ -33,6 +34,7 @@ class GAN(object):
         """
         :return: a tensorflow node that will read one image from a file at a time and convert it to a tensor of floats.
         """
+
         class DataRecord(object):
             pass
 
@@ -58,12 +60,12 @@ class GAN(object):
         """
         :return: a tensorflow node that will read images from the queue and construct training batches from them.
         """
-        print(self.root_scope_name+"Setting up image reader...")
+        print(self.root_scope_name + "Setting up image reader...")
         read_input = self._read_input(filename_queue)
         num_preprocess_threads = 4
         num_examples_per_epoch = 800
         min_queue_examples = int(0.1 * num_examples_per_epoch)
-        print(self.root_scope_name+"Shuffling")
+        print(self.root_scope_name + "Shuffling")
         input_image = tf.train.batch([read_input.input_image],
                                      batch_size=self.batch_size,
                                      num_threads=num_preprocess_threads,
@@ -108,7 +110,7 @@ class GAN(object):
         return pred_image
 
     def _discriminator(self, input_images, dims, train_phase, activation=tf.nn.relu, scope_name="discriminator",
-                       scope_reuse=False):
+                       scope_reuse=False, bn_root_scope_name='', bn_scope_reuse=False):
         N = len(dims)
         with tf.variable_scope(scope_name) as scope:
             if scope_reuse:
@@ -123,7 +125,8 @@ class GAN(object):
                     h_bn = h_conv
                     skip_bn = False
                 else:
-                    h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase, scope="disc_bn%d" % index)
+                    h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase,
+                                            scope="disc_bn%d" % index, moments_scope=bn_root_scope_name+"disc_bn%d" % index, moments_scope_reuse=False)
                 h = activation(h_bn, name="h_%d" % index)
                 utils.add_activation_summary(h, collections=self.summary_collections)
 
@@ -160,7 +163,6 @@ class GAN(object):
         self.train_phase = tf.placeholder(tf.bool)
         self.z_vec = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], name="z")
 
-
     def _dis_loss(self, logits_real, logits_fake):
         discriminator_loss_real = self._cross_entropy_loss(logits_real, tf.ones_like(logits_real),
                                                            name="disc_real_loss")
@@ -182,11 +184,11 @@ class GAN(object):
         tf.summary.scalar("Generator_loss", self.gen_loss, collections=self.summary_collections)
 
     def leaky_relu(self, x, name="leaky_relu"):
-            return utils.leaky_relu(x, alpha=0.2, name=name)
+        return utils.leaky_relu(x, alpha=0.2, name=name)
 
     def create_network(self, generator_dims, discriminator_dims, optimizer="Adam", learning_rate=2e-4,
                        optimizer_param=0.9, improved_gan_loss=True):
-        print(self.root_scope_name+"Setting up model...")
+        print(self.root_scope_name + "Setting up model...")
         self._setup_placeholder()
         tf.summary.histogram("z", self.z_vec, collections=self.summary_collections)
         self.gen_images = self._generator(self.z_vec, generator_dims, self.train_phase, scope_name="generator")
@@ -194,19 +196,25 @@ class GAN(object):
         tf.summary.image("image_real", self.training_batch_images, max_outputs=2, collections=self.summary_collections)
         tf.summary.image("image_generated", self.gen_images, max_outputs=2, collections=self.summary_collections)
 
-        print(self.root_scope_name+"Creating discriminator for real images")
-        discriminator_real_prob, self.logits_real, feature_real = self._discriminator(self.training_batch_images, discriminator_dims,
-                                                                                 self.train_phase,
-                                                                                 activation=self.leaky_relu,
-                                                                                 scope_name="discriminator",
-                                                                                 scope_reuse=False)
+        print(self.root_scope_name + "Creating discriminator for real images")
+        discriminator_real_prob, self.logits_real, feature_real = self._discriminator(self.training_batch_images,
+                                                                                      discriminator_dims,
+                                                                                      self.train_phase,
+                                                                                      activation=self.leaky_relu,
+                                                                                      scope_name="discriminator",
+                                                                                      scope_reuse=False,
+                                                                                      bn_root_scope_name='real_bn_',
+                                                                                      bn_scope_reuse=False)
 
-        print(self.root_scope_name+"Creating discriminator for generated images")
-        discriminator_fake_prob, self.logits_fake, feature_fake = self._discriminator(self.gen_images, discriminator_dims,
-                                                                                 self.train_phase,
-                                                                                 activation=self.leaky_relu,
-                                                                                 scope_name="discriminator",
-                                                                                 scope_reuse=True)
+        print(self.root_scope_name + "Creating discriminator for generated images")
+        discriminator_fake_prob, self.logits_fake, feature_fake = self._discriminator(self.gen_images,
+                                                                                      discriminator_dims,
+                                                                                      self.train_phase,
+                                                                                      activation=self.leaky_relu,
+                                                                                      scope_name="discriminator",
+                                                                                      scope_reuse=True,
+                                                                                      bn_root_scope_name='generated_bn_',
+                                                                                      bn_scope_reuse=False)
 
         # utils.add_activation_summary(tf.identity(discriminator_real_prob, name='disc_real_prob'))
         # utils.add_activation_summary(tf.identity(discriminator_fake_prob, name='disc_fake_prob'))
@@ -220,9 +228,10 @@ class GAN(object):
             # print (v.op.name)
             utils.add_to_regularization_and_summary(var=v)
 
-        self.generator_variables = [v for v in train_variables if v.name.startswith(self.root_scope_name+"generator")]
+        self.generator_variables = [v for v in train_variables if v.name.startswith(self.root_scope_name + "generator")]
         # print(map(lambda x: x.op.name, generator_variables))
-        self.discriminator_variables = [v for v in train_variables if v.name.startswith(self.root_scope_name+"discriminator")]
+        self.discriminator_variables = [v for v in train_variables if
+                                        v.name.startswith(self.root_scope_name + "discriminator")]
         # print(map(lambda x: x.op.name, discriminator_variables))
 
         optim = self._get_optimizer(optimizer, learning_rate, optimizer_param)
@@ -231,10 +240,11 @@ class GAN(object):
         self.discriminator_train_op = self._train(self.discriminator_loss, self.discriminator_variables, optim)
 
     def initialize_network(self, logs_dir, checkpoint_file=None, session=None):
-        print(self.root_scope_name+"Initializing network...")
+        print(self.root_scope_name + "Initializing network...")
         self.logs_dir = logs_dir
         self.sess = tf.Session() if not session else session
-        self.summary_op = tf.summary.merge_all() if not self.root_scope_name else tf.summary.merge_all(self.root_scope_name)
+        self.summary_op = tf.summary.merge_all() if not self.root_scope_name else tf.summary.merge_all(
+            self.root_scope_name)
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.logs_dir, self.sess.graph)
 
@@ -243,19 +253,19 @@ class GAN(object):
             ckpt = tf.train.get_checkpoint_state(self.logs_dir)
             if ckpt:
                 checkpoint_file = ckpt.model_checkpoint_path
-        else :
+        else:
             checkpoint_file = logs_dir + "/" + checkpoint_file
         if checkpoint_file:
             self.saver.restore(self.sess, checkpoint_file)
-            print(self.root_scope_name+"Model restored from file %s" % checkpoint_file)
+            print(self.root_scope_name + "Model restored from file %s" % checkpoint_file)
 
     def dis_post_update(self):
         pass
 
     def get_feed_dict(self, train_phase=True):
-                    batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
-                    feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
-                    return feed_dict
+        batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
+        feed_dict = {self.z_vec: batch_z, self.train_phase: train_phase}
+        return feed_dict
 
     def run_training_step(self, itr, get_feed_dict):
         if not get_feed_dict:
@@ -285,7 +295,7 @@ class GAN(object):
     def train_model(self, max_iterations):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(self.sess, coord)
-        print(self.root_scope_name+"Training model...")
+        print(self.root_scope_name + "Training model...")
         start_time = time.time()
         batch_start_time = time.time()
         try:
@@ -298,24 +308,25 @@ class GAN(object):
                     batch_start_time = batch_stop_time
                     g_loss_val, d_loss_val = self.sess.run(
                         [self.gen_loss, self.discriminator_loss], feed_dict=feed_dict)
-                    print(self.root_scope_name+"Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (duration, itr, g_loss_val, d_loss_val))
+                    print(self.root_scope_name + "Time: %g, Step: %d, generator loss: %g, discriminator_loss: %g" % (
+                    duration, itr, g_loss_val, d_loss_val))
                 if itr % 5000 == 0:
-                    self.saver.save(self.sess, self.logs_dir+ "model-%d.ckpt" % itr, global_step=itr)
+                    self.saver.save(self.sess, self.logs_dir + "model-%d.ckpt" % itr, global_step=itr)
 
 
         except tf.errors.OutOfRangeError:
-            print(self.root_scope_name+'Done training -- epoch limit reached')
+            print(self.root_scope_name + 'Done training -- epoch limit reached')
         except KeyboardInterrupt:
-            print(self.root_scope_name+"Ending Training...")
+            print(self.root_scope_name + "Ending Training...")
         finally:
-            print(self.root_scope_name+"Total training time: %g" % (time.time()-start_time))
+            print(self.root_scope_name + "Total training time: %g" % (time.time() - start_time))
             coord.request_stop()
             coord.join(threads)  # Wait for threads to finish.
 
     def visualize_model(self, logdir=None):
         if not logdir:
             logdir = self.logs_dir
-        print(self.root_scope_name+"Sampling images from model...")
+        print(self.root_scope_name + "Sampling images from model...")
         batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
         feed_dict = {self.z_vec: batch_z, self.train_phase: False}
 
@@ -324,5 +335,4 @@ class GAN(object):
         shape = [4, self.batch_size // 4]
         utils.save_imshow_grid(images, logdir, "generated_palette.png", shape=shape)
         for i in range(len(images)):
-            scipy.misc.imsave(logdir+"/generated_image%d.png" % (i+1), images[i])
-
+            scipy.misc.imsave(logdir + "/generated_image%d.png" % (i + 1), images[i])

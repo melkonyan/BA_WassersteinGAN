@@ -16,7 +16,9 @@ def run(gan1, gan2, gan1_scope_name, gan2_scope_name, discriminator_dims, logs_d
                                                     gan1.train_phase,
                                                     activation=gan1.leaky_relu,
                                                     scope_name="discriminator",
-                                                    scope_reuse=True)
+                                                    scope_reuse=True,
+                                                    bn_root_scope_name='generated_bn_',
+                                                    bn_scope_reuse=True)
         gan_dis_wgan_gen_loss = gan1._dis_loss(gan1.logits_real, gan_dis_wgan_gen)
         tf.summary.scalar('%s_dis_%s_gen' % (gan1_scope_name, gan2_scope_name), gan_dis_wgan_gen_loss, collections=gan1.summary_collections)
 
@@ -25,7 +27,9 @@ def run(gan1, gan2, gan1_scope_name, gan2_scope_name, discriminator_dims, logs_d
                                                     gan2.train_phase,
                                                     activation=gan2.leaky_relu,
                                                     scope_name="discriminator",
-                                                    scope_reuse=True)
+                                                    scope_reuse=True,
+                                                    bn_root_scope_name='generated_bn_',
+                                                    bn_scope_reuse=True)
         wgan_dis_gan_gen_loss = gan2._dis_loss(gan2.logits_real, wgan_dis_gan_gen)
         tf.summary.scalar('%s_dis_%s_gen' % (gan2_scope_name, gan1_scope_name), wgan_dis_gan_gen_loss, collections=gan2.summary_collections)
 

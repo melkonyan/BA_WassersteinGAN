@@ -49,14 +49,14 @@ def main(argv=None):
     #     model.visualize_model()
     import cross_dis
 
-    gan1_scope_name = 'wgan1'
-    gan2_scope_name = 'wgan2'
+    gan1_scope_name = 'gan1'
+    gan2_scope_name = 'gan2'
 
     with tf.variable_scope(gan1_scope_name):
-        gan1 = WasserstienGAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=5, root_scope_name='wgan1/')
+        gan1 = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir, critic_iterations=1, root_scope_name='gan1/')
         gan1.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate, FLAGS.optimizer_param)
     with tf.variable_scope(gan2_scope_name):
-        gan2 = WasserstienGAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,  root_scope_name='wgan2/', critic_iterations=5)
+        gan2 = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir,  root_scope_name='gan2/', critic_iterations=1)
         gan2.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate, FLAGS.optimizer_param)
 
     cross_dis.run(gan1, gan2, gan1_scope_name, gan2_scope_name, discriminator_dims,

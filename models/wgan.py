@@ -53,7 +53,7 @@ class WasserstienGAN(GAN):
         return pred_image
 
     def _discriminator(self, input_images, dims, train_phase, activation=tf.nn.relu, scope_name="discriminator",
-                       scope_reuse=False):
+                       scope_reuse=False, bn_root_scope_name='', bn_scope_reuse=False):
         N = len(dims)
         with tf.variable_scope(scope_name) as scope:
             if scope_reuse:
@@ -68,7 +68,8 @@ class WasserstienGAN(GAN):
                     h_bn = h_conv
                     skip_bn = False
                 else:
-                    h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase, scope="disc_bn%d" % index)
+                    h_bn = utils.batch_norm(h_conv, dims[index + 1], train_phase,
+                                            scope="disc_bn%d" % index, moments_scope=bn_root_scope_name+"disc_bn%d" % index, moments_scope_reuse=False)
                 h = activation(h_bn, name="h_%d" % index)
                 utils.add_activation_summary(h, collections=self.summary_collections)
 

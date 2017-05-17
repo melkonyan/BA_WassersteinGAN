@@ -125,7 +125,7 @@ def local_response_norm(x):
     return tf.nn.lrn(x, depth_radius=5, bias=2, alpha=1e-4, beta=0.75)
 
 
-def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.02):
+def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.02, moments_scope = 'bn', moments_scope_reuse=False):
     """
     Code taken from http://stackoverflow.com/a/34634291/2267819
 
@@ -143,7 +143,10 @@ def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.
                                , trainable=True)
         gamma = tf.get_variable(name='gamma', shape=[n_out], initializer=tf.random_normal_initializer(1.0, stddev),
                                 trainable=True)
-    with tf.variable_scope(tf.get_variable_scope(), reuse=False):
+    bn_scope_name = tf.get_variable_scope() if not moments_scope_reuse else moments_scope
+    #print(bn_scope_name, scope_reuse)
+    with tf.variable_scope(bn_scope_name, reuse=moments_scope_reuse):
+    #   with tf.variable_scope(tf.get_variable_scope(), reuse=False):
         batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
         ema = tf.train.ExponentialMovingAverage(decay=decay)
         def mean_var_with_update():
@@ -154,6 +157,7 @@ def batch_norm(x, n_out, phase_train, scope='bn', decay=0.9, eps=1e-5, stddev=0.
                             mean_var_with_update,
                             lambda: (ema.average(batch_mean), ema.average(batch_var)))
         normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, eps)
+        print('Batch normalization completed')
     return normed
 
 
