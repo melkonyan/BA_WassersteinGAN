@@ -287,7 +287,7 @@ class GAN(object):
         feed_dict = get_feed_dict(True)
         self.sess.run(self.generator_train_op, feed_dict=feed_dict)
         if itr % 100 == 0:
-            summary_str = self.sess.run(self.summary_op, feed_dict=feed_dict)
+            summary_str = self.sess.run(self.summary_op, feed_dict=get_feed_dict(False))
             self.summary_writer.add_summary(summary_str, itr)
 
         return time.time() - start_time
