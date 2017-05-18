@@ -1,0 +1,3 @@
+trial10 - gan vs gan
+trial13 - gan vs gan, improved bn
+trial14 - gan vs gan, improved bn(compute loss with train_phase=False)
